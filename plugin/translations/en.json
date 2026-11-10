@@ -2,7 +2,7 @@
   "settings": {
     "endpoint": {
       "label": "Bridge URL",
-      "description": "Where napple-tvd is listening (loopback only)"
+      "description": "Where peard is listening (loopback only)"
     },
     "show_title": {
       "label": "Show title"

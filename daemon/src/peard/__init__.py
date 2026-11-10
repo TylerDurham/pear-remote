@@ -1,8 +1,10 @@
-"""napple-tvd: Apple TV bridge for the napple-tv Noctalia plugin.
+"""peard ("paired"): Apple TV bridge for the pear-remote Noctalia plugin.
 
-  napple-tvd scan               list Apple TVs on the network
-  napple-tvd pair [--host IP]   pick a device, pair Companion + AirPlay, save config
-  napple-tvd serve [--port N]   run the HTTP/SSE bridge (what the systemd unit runs)
+  peard scan               list Apple TVs on the network
+  peard pair [--host IP]   pick a device, pair Companion + AirPlay, add it to config
+  peard devices            list paired TVs (* = active)
+  peard use NAME|ID        switch the active TV (live if the bridge is running)
+  peard serve [--port N]   run the HTTP/SSE bridge (what the systemd unit runs)
 """
 
 from __future__ import annotations
@@ -17,11 +19,12 @@ import threading
 import traceback
 import sys
 
+import aiohttp
 import pyatv
 from pyatv.const import PairingRequirement, Protocol
 from pyatv.storage.file_storage import FileStorage
 
-from .config import Config, config_path
+from .config import Config, Device, config_path
 from .controller import Controller
 from .server import serve
 
@@ -167,19 +170,61 @@ async def cmd_pair(args: argparse.Namespace) -> int:
         return 1
 
     cfg = Config.load()
-    cfg.identifier = conf.identifier
-    cfg.name = conf.name
-    cfg.host = str(conf.address)  # serve connects by unicast first (works behind ufw)
+    # host: serve connects by unicast first (works behind ufw)
+    cfg.upsert(Device(conf.identifier, conf.name, str(conf.address)))
+    if cfg.active is None:
+        cfg.active = conf.identifier
     print(f"Saved {cfg.save()}  (credentials in pyatv storage)")
+    if cfg.active != conf.identifier:
+        print(f"Switch to it from the panel's TV picker, or: peard use {_shell_quote(conf.name)}")
     return 0
+
+
+def _shell_quote(text: str) -> str:
+    return "'" + text.replace("'", "'\\''") + "'"
+
+
+async def cmd_devices(args: argparse.Namespace) -> int:
+    cfg = Config.load()
+    if not cfg.devices:
+        print("No paired TVs. Run: peard pair --host <ip>")
+        return 1
+    current = cfg.current
+    for d in cfg.devices:
+        mark = "*" if current and d.identifier == current.identifier else " "
+        print(f"{mark} {d.name or '?'}  {d.host or '-'}  id={d.identifier}")
+    return 0
+
+
+async def cmd_use(args: argparse.Namespace) -> int:
+    cfg = Config.load()
+    dev = cfg.find(args.device)
+    if dev is None:
+        paired = ", ".join(d.name or d.identifier for d in cfg.devices)
+        print(f"No paired TV matches {args.device!r}. Paired: {paired}")
+        return 1
+    # Prefer the running bridge so it reconnects immediately; it also persists the choice.
+    url = f"http://127.0.0.1:{cfg.port}/device"
+    try:
+        async with aiohttp.ClientSession() as session, session.post(
+            url, json={"id": dev.identifier}, headers={"X-Pear": "1"}, timeout=aiohttp.ClientTimeout(total=5)
+        ) as resp:
+            resp.raise_for_status()
+        print(f"Switched to {dev.name} (bridge reconnecting)")
+        return 0
+    except (aiohttp.ClientError, TimeoutError):
+        cfg.active = dev.identifier
+        cfg.save()
+        print(f"Active TV set to {dev.name} (bridge not running; it will use it on start)")
+        return 0
 
 
 async def cmd_serve(args: argparse.Namespace) -> int:
     cfg = Config.load()
     if args.port:
         cfg.port = args.port
-    if not cfg.identifier and not cfg.host:
-        logging.warning("no device in %s yet; run `napple-tvd pair`. Serving anyway.", config_path())
+    if cfg.current is None:
+        logging.warning("no device in %s yet; run `peard pair`. Serving anyway.", config_path())
     task = asyncio.create_task(serve(Controller(cfg), cfg.port))
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -190,7 +235,7 @@ async def cmd_serve(args: argparse.Namespace) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="napple-tvd", description=__doc__,
+    parser = argparse.ArgumentParser(prog="peard", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-v", "--verbose", action="store_true")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -203,6 +248,13 @@ def main() -> None:
     p.add_argument("--host", help="device IP, if multicast discovery doesn't find it")
     p.add_argument("--force", action="store_true", help="re-pair protocols that already have credentials")
     p.set_defaults(fn=cmd_pair)
+
+    p = sub.add_parser("devices", help="list paired TVs")
+    p.set_defaults(fn=cmd_devices)
+
+    p = sub.add_parser("use", help="switch the active TV")
+    p.add_argument("device", help="name (or unique prefix) or identifier")
+    p.set_defaults(fn=cmd_use)
 
     p = sub.add_parser("serve", help="run the bridge")
     p.add_argument("--port", type=int)

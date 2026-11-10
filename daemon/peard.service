@@ -1,11 +1,11 @@
 [Unit]
-Description=napple-tvd - Apple TV bridge for the Noctalia napple-tv plugin
+Description=peard - Apple TV bridge for the Noctalia pear-remote plugin
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/napple-tvd serve
+ExecStart=%h/.local/bin/peard serve
 Restart=on-failure
 RestartSec=5
 

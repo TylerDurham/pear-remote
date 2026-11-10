@@ -1,20 +1,20 @@
-# Apple TV remote for the bar. Talks to the napple-tvd bridge (pyatv) over
+# Apple TV remote for the bar. Talks to the peard bridge (pyatv) over
 # localhost HTTP + SSE; see ../README.md for pairing and the systemd unit.
 #
-#   bar:   [widget.appletv]  type = "dtd/napple-tv:remote"
-#   ipc:   noctalia msg plugin dtd/napple-tv:bridge all key select
-#          noctalia msg panel-toggle dtd/napple-tv:pad
+#   bar:   [widget.appletv]  type = "dtd/pear-remote:remote"
+#   ipc:   noctalia msg plugin dtd/pear-remote:bridge all key select
+#          noctalia msg panel-toggle dtd/pear-remote:pad
 
-id = "dtd/napple-tv"
-name = "Apple TV Remote"
-version = "0.1.0"
+id = "dtd/pear-remote"
+name = "Pear Remote"
+version = "0.2.0"
 plugin_api = 26
 author = "dtd"
 license = "MIT"
 icon = "device-tv"
-description = "Now-playing in the bar and a full remote panel for an Apple TV, via the napple-tvd pyatv bridge."
+description = "Apple TV remote for the bar: now-playing, a full remote panel and a TV picker, via the peard pyatv bridge."
 tags = ["media", "remote"]
-dependencies = ["napple-tvd"]
+dependencies = ["peard"]
 
 [[setting]]
 key = "endpoint"
@@ -61,7 +61,7 @@ entry = "widget.luau"
 id = "pad"
 entry = "panel.luau"
 width = 320
-height = 580
+height = 620
 placement = "attached"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Left", "Right", "Return", "BackSpace", "space", "h"]

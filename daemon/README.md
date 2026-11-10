@@ -1,3 +1,3 @@
-# napple-tvd
+# peard
 
-Apple TV bridge daemon for the napple-tv Noctalia plugin. See ../README.md.
+Apple TV bridge daemon for the pear-remote Noctalia plugin. See ../README.md.

@@ -3,7 +3,7 @@
 
 local M = {}
 
-M.PLUGIN = "dtd/napple-tv"
+M.PLUGIN = "dtd/pear-remote"
 M.REMOTE_PANEL = M.PLUGIN .. ":pad"
 M.KEYBOARD_PANEL = M.PLUGIN .. ":keyboard"
 
@@ -31,14 +31,14 @@ function M.request(method: string, path: string, body: any?, cb: ((any) -> ())?)
   local req = {
     url = M.url(path),
     method = method,
-    headers = { "X-Napple: 1", "Content-Type: application/json" },
+    headers = { "X-Pear: 1", "Content-Type: application/json" },
   }
   if body ~= nil then
     req.body = noctalia.json.encode(body)
   end
   return noctalia.http(req, function(res)
     if not res.ok then
-      report("napple-tvd is not reachable at " .. M.url(""))
+      report("peard is not reachable at " .. M.url(""))
     elseif res.status >= 400 then
       local v = noctalia.json.decode(res.body)
       report((type(v) == "table" and v.error) or ("HTTP " .. res.status))

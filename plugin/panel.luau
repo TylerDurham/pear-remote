@@ -7,6 +7,8 @@ local api = require("./lib/api.luau")
 
 local snap = api.snapshot(noctalia.state.get("snapshot"))
 local apps = nil -- { { name, id } } once fetched
+local devices = nil -- { { id, name, host } } paired TVs, from GET /devices
+local activeId = nil
 local volDraft = nil -- slider value while dragging
 local isOpen = false
 
@@ -58,6 +60,41 @@ local function artwork(s)
   })
 end
 
+-- TV picker: every TV paired with `peard pair`. Works while disconnected too,
+-- so you can switch away from a TV that is off or unreachable.
+local function deviceRow(s)
+  if not s.daemon or not devices or #devices == 0 then
+    return nil
+  end
+  local names, selected = {}, nil
+  local current = s.deviceId or activeId
+  for i, d in devices do
+    names[i] = d.name
+    if d.id == current then
+      selected = i - 1
+    end
+  end
+  return ui.row({ gap = 8, align = "center" }, {
+    ui.glyph({ name = "device-tv", size = 16, color = "on_surface_variant" }),
+    ui.select({
+      options = names,
+      selectedIndex = selected,
+      placeholder = "Choose TV…",
+      controlSize = "sm",
+      flexGrow = 1,
+      onChange = function(index, _text)
+        local d = devices[(tonumber(index) or -1) + 1]
+        if d and d.id ~= current then
+          activeId = d.id
+          apps = nil
+          api.post("/device", { id = d.id })
+          render()
+        end
+      end,
+    }),
+  })
+end
+
 local function header(s)
   local title
   if not s.daemon then
@@ -68,7 +105,11 @@ local function header(s)
     title = s.title or s.app or (s.power == "off" and "Asleep" or "Nothing playing")
   end
   local sub = api.subtitle(s)
-  local status = (s.device or "Apple TV") .. " · " .. api.statusText(s)
+  -- The picker already names the TV; fall back to the name when it isn't shown.
+  local status = api.statusText(s)
+  if not devices or #devices == 0 then
+    status = (s.device or "Apple TV") .. " · " .. status
+  end
 
   return ui.row({ gap = 12, align = "center" }, {
     artwork(s),
@@ -202,6 +243,18 @@ local function appsRow(s)
   })
 end
 
+function fetchDevices()
+  api.get("/devices", function(res)
+    if type(res) == "table" and type(res.devices) == "table" then
+      devices = res.devices
+      activeId = res.active
+      if isOpen then
+        render()
+      end
+    end
+  end)
+end
+
 function fetchApps(refresh)
   if not snap.connected or not snap.features.apps then
     return
@@ -218,12 +271,14 @@ end
 
 function render()
   local s = snap
-  local children = { header(s) }
+  local children = {}
   local function add(node)
     if node then
       table.insert(children, node)
     end
   end
+  add(deviceRow(s))
+  add(header(s))
   add(progress(s))
   add(ui.separator({}))
   add(dpad())
@@ -233,7 +288,7 @@ function render()
   add(appsRow(s))
   if not s.daemon then
     add(ui.label({
-      text = "Start it with: systemctl --user start napple-tvd",
+      text = "Start it with: systemctl --user start peard",
       fontSize = 11,
       color = "error",
       maxLines = 2,
@@ -243,11 +298,15 @@ function render()
 end
 
 noctalia.state.watch("snapshot", function(raw)
-  local wasConnected = snap.connected
+  local prev = snap
   snap = api.snapshot(raw)
-  if not snap.connected then
+  if snap.daemon and (not prev.daemon or snap.deviceId ~= prev.deviceId) then
+    fetchDevices() -- bridge (re)started or TV switched: list may have changed
+  end
+  if snap.deviceId ~= prev.deviceId or not snap.connected then
     apps = nil
-  elseif not wasConnected or apps == nil then
+  end
+  if snap.connected and (not prev.connected or apps == nil) then
     fetchApps(false)
   end
   if isOpen then
@@ -259,6 +318,7 @@ function onOpen(_context)
   isOpen = true
   snap = api.snapshot(noctalia.state.get("snapshot"))
   panel.setWantsSecondTicks(true)
+  fetchDevices() -- cheap; picks up TVs paired since last open
   if apps == nil then
     fetchApps(false)
   end

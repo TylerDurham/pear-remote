@@ -10,8 +10,10 @@ POST /power/<on|off|toggle>
 POST /keyboard/<set|append|clear>  {"text": "..."}
 GET  /apps[?refresh=1]
 POST /launch        {"id": "com.apple.TVWatchList"}
+GET  /devices                    paired TVs + active identifier
+POST /device        {"id": "<identifier or name>"}   switch TV (persisted)
 
-Bound to 127.0.0.1. POSTs must carry `X-Napple: 1` (a custom header forces a CORS
+Bound to 127.0.0.1. POSTs must carry `X-Pear: 1` (a custom header forces a CORS
 preflight that is never answered, so web pages can't drive the TV) and the Host
 header must be loopback (blocks DNS rebinding).
 """
@@ -48,8 +50,8 @@ async def guard(request: web.Request, handler: Any) -> web.StreamResponse:
         host = None
     if host not in ALLOWED_HOSTS:
         return _err(403, "bad host")
-    if request.method != "GET" and request.headers.get("X-Napple") != "1":
-        return _err(403, "missing X-Napple header")
+    if request.method != "GET" and request.headers.get("X-Pear") != "1":
+        return _err(403, "missing X-Pear header")
     try:
         return await handler(request)
     except NotConnected as exc:
@@ -146,6 +148,14 @@ async def apps(request: web.Request) -> web.Response:
     return web.json_response(await _ctl(request).apps(refresh=refresh))
 
 
+async def devices(request: web.Request) -> web.Response:
+    return web.json_response(_ctl(request).devices())
+
+
+async def select_device(request: web.Request) -> web.Response:
+    return web.json_response(await _ctl(request).select_device(str((await _body(request))["id"])))
+
+
 async def launch(request: web.Request) -> web.Response:
     await _ctl(request).launch(str((await _body(request))["id"]))
     return web.Response(status=204)
@@ -164,6 +174,8 @@ def make_app(controller: Controller) -> web.Application:
     app.router.add_post("/keyboard/{op}", keyboard)
     app.router.add_get("/apps", apps)
     app.router.add_post("/launch", launch)
+    app.router.add_get("/devices", devices)
+    app.router.add_post("/device", select_device)
     return app
 
 

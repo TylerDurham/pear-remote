@@ -1,7 +1,7 @@
 [project]
-name = "napple-tvd"
+name = "peard"
 version = "0.1.0"
-description = "pyatv bridge that exposes an Apple TV remote over local HTTP + SSE for the Noctalia napple-tv plugin"
+description = "pyatv bridge that exposes an Apple TV remote over local HTTP + SSE for the Noctalia pear-remote plugin"
 readme = "README.md"
 authors = [
     { name = "Tyler Durham", email = "2191002+TylerDurham@users.noreply.github.com" }
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-napple-tvd = "napple_tvd:main"
+peard = "peard:main"
 
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]

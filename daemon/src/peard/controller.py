@@ -37,6 +37,8 @@ REMOTE_KEYS = frozenset(
     }
 )
 AUDIO_KEYS = frozenset({"volume_up", "volume_down"})
+STABLE_AFTER_S = 30  # a connection this old resets the reconnect backoff
+
 ACTIONS = {"tap": InputAction.SingleTap, "double": InputAction.DoubleTap, "hold": InputAction.Hold}
 
 FEATURES = {
@@ -105,9 +107,11 @@ class Controller(PushListener, PowerListener, AudioListener, KeyboardListener, D
         self.config = config
         self.hub = Hub()
         self.atv: AppleTV | None = None
+        current = config.current
         self.state: dict[str, Any] = {
             "connected": False,
-            "device": config.name,
+            "device": current.name if current else None,
+            "deviceId": current.identifier if current else None,
             "error": None,
             "power": "unknown",
             "volume": None,
@@ -116,7 +120,9 @@ class Controller(PushListener, PowerListener, AudioListener, KeyboardListener, D
             **_blank_playing(),
         }
         self._storage: FileStorage | None = None
-        self._disconnected = asyncio.Event()
+        # Set when the connection drops or a device switch is requested.
+        self._wake = asyncio.Event()
+        self._switch = False
         self._artwork_id: str | None = None
         self._artwork_task: asyncio.Task[None] | None = None
         self._apps: list[dict[str, str]] | None = None
@@ -154,11 +160,22 @@ class Controller(PushListener, PowerListener, AudioListener, KeyboardListener, D
         self._storage = FileStorage.default_storage(loop)
         backoff = 2.0
         while True:
+            self._switch = False
             try:
                 await self._connect()
-                backoff = 2.0
-                await self._disconnected.wait()
-                log.warning("connection to Apple TV ended; reconnecting")
+                started = time.monotonic()
+                if not self._switch:  # a switch may have been requested mid-connect
+                    await self._wake.wait()
+                if not self._switch:
+                    lasted = time.monotonic() - started
+                    if lasted >= STABLE_AFTER_S:
+                        backoff = 2.0
+                    else:
+                        # Dropped right away: commonly a second client using the same
+                        # pairing (another peard) and the TV kicking one of them.
+                        log.warning("connection dropped after %.0fs; is another peard "
+                                    "connected to this TV?", lasted)
+                    log.warning("connection to Apple TV ended; reconnecting in %.0fs", backoff)
             except asyncio.CancelledError:
                 await self._teardown()
                 raise
@@ -166,34 +183,40 @@ class Controller(PushListener, PowerListener, AudioListener, KeyboardListener, D
                 log.warning("connect failed: %s", exc)
                 self._set(connected=False, error=str(exc) or type(exc).__name__)
             await self._teardown()
-            await asyncio.sleep(backoff)
+            if self._switch:
+                backoff = 2.0
+                continue  # reconnect to the newly selected TV right away
+            # Back off, but let a device switch cut the wait short.
+            self._wake.clear()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._wake.wait(), backoff)
             backoff = min(backoff * 2, 60.0)
 
     async def _connect(self) -> None:
-        if not self.config.identifier and not self.config.host:
-            # Pick up a `napple-tvd pair` done while we were running.
-            fresh = Config.load()
-            self.config.identifier, self.config.host, self.config.name = fresh.identifier, fresh.host, fresh.name
-        if not self.config.identifier and not self.config.host:
-            raise RuntimeError("no Apple TV configured; run `napple-tvd pair`")
+        # Re-read each attempt: picks up `peard pair` / `use` done while running.
+        self.config = Config.load()
+        dev = self.config.current
+        if dev is None:
+            raise RuntimeError("no Apple TV configured; run `peard pair`")
+        self._set(device=dev.name, deviceId=dev.identifier)
         loop = asyncio.get_running_loop()
-        await self._storage.load()  # credentials may have been added by `napple-tvd pair`
+        await self._storage.load()  # credentials may have been added by `peard pair`
         confs = []
-        if self.config.host:
+        if dev.host:
             # Unicast first: needs no multicast replies, so it works behind a firewall.
-            confs = await pyatv.scan(loop, hosts=[self.config.host], storage=self._storage, timeout=5)
-            if self.config.identifier:
-                confs = [c for c in confs if self.config.identifier in c.all_identifiers]
-        if not confs and self.config.identifier:
-            # IP changed (DHCP)? Fall back to multicast discovery by identifier.
-            confs = await pyatv.scan(loop, identifier=self.config.identifier, storage=self._storage, timeout=5)
+            confs = await pyatv.scan(loop, hosts=[dev.host], storage=self._storage, timeout=5)
+            confs = [c for c in confs if dev.identifier in c.all_identifiers]
         if not confs:
-            raise LookupError(f"Apple TV not found (host={self.config.host}); re-run `napple-tvd pair --host <ip>`")
+            # IP changed (DHCP)? Fall back to multicast discovery by identifier.
+            confs = await pyatv.scan(loop, identifier=dev.identifier, storage=self._storage, timeout=5)
+        if not confs:
+            raise LookupError(f"{dev.name or dev.identifier} not found (host={dev.host}); "
+                              "re-run `peard pair --host <ip>`")
         conf = confs[0]
         log.info("connecting to %s (%s)", conf.name, conf.address)
         atv = await pyatv.connect(conf, loop, storage=self._storage)
         self.atv = atv
-        self._disconnected.clear()
+        self._wake.clear()  # drop close callbacks from the previous connection
 
         atv.listener = self
         atv.push_updater.listener = self
@@ -205,7 +228,6 @@ class Controller(PushListener, PowerListener, AudioListener, KeyboardListener, D
         features = self._features()
         self._set(
             connected=True,
-            device=conf.name,
             error=None,
             features=features,
             power=self._safe(lambda: atv.power.power_state.name.lower(), "unknown"),
@@ -283,10 +305,10 @@ class Controller(PushListener, PowerListener, AudioListener, KeyboardListener, D
 
     def connection_lost(self, exception: Exception) -> None:
         self._set(error=str(exception) or "connection lost")
-        self._disconnected.set()
+        self._wake.set()
 
     def connection_closed(self) -> None:
-        self._disconnected.set()
+        self._wake.set()
 
     # ── artwork ──────────────────────────────────────────────────────────────
 
@@ -321,6 +343,32 @@ class Controller(PushListener, PowerListener, AudioListener, KeyboardListener, D
         except Exception as exc:  # noqa: BLE001
             log.debug("artwork fetch failed: %s", exc)
         self._set(artwork=path_str)
+
+    # ── devices ──────────────────────────────────────────────────────────────
+
+    def devices(self) -> dict[str, Any]:
+        cfg = Config.load()
+        current = cfg.current
+        return {
+            "active": current.identifier if current else None,
+            "devices": [d.as_json() for d in cfg.devices],
+        }
+
+    async def select_device(self, key: str) -> dict[str, Any]:
+        """Make a paired TV the active one and reconnect to it (persisted in config)."""
+        cfg = Config.load()
+        dev = cfg.find(key)
+        if dev is None:
+            raise UnknownCommand(f"no paired device matches {key!r}; run `peard pair --host <ip>`")
+        if cfg.active != dev.identifier:
+            cfg.active = dev.identifier
+            cfg.save()
+        if not (self.state.get("deviceId") == dev.identifier and self.atv is not None):
+            log.info("switching to %s", dev.name or dev.identifier)
+            self._switch = True
+            self._set(device=dev.name, deviceId=dev.identifier, error=None)
+            self._wake.set()
+        return dev.as_json()
 
     # ── commands ─────────────────────────────────────────────────────────────
 

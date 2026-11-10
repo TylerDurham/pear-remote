@@ -689,7 +689,7 @@ wheels = [
 ]
 
 [[package]]
-name = "napple-tvd"
+name = "peard"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
