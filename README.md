@@ -5,6 +5,10 @@
 An Apple TV remote for the [Noctalia](https://noctalia.dev) v5 bar, built on
 [pyatv](https://pyatv.dev).
 
+<div align="center">
+  <img src="media/screenshot.png" width="800"/>
+</div>
+
 ```
 ┌──────── Noctalia plugin (Luau) ────────┐            ┌──────────── peard (Python) ─────────┐
 │ service.luau  ── GET /events (SSE) ────┼──────────▶ │ aiohttp on 127.0.0.1:7655           │
