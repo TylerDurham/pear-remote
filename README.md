@@ -46,6 +46,13 @@ unicast first. It falls back to multicast discovery only if that IP stops answer
 To make multicast discovery work too, allow mDNS replies from the LAN:
 `sudo ufw allow proto udp from 192.168.1.0/24 port 5353`.
 
+if you don't want to open up `ufw`, run the following `avahi` command to query for Apple TV 
+devices on your network:
+
+``` shell
+avahi-browse -rpt _companion-link._tcp
+```
+
 ### Multiple TVs
 
 Pair each TV once. They all show up in the remote panel's TV picker:
