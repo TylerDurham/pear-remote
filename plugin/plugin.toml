@@ -1,0 +1,77 @@
+# Apple TV remote for the bar. Talks to the napple-tvd bridge (pyatv) over
+# localhost HTTP + SSE; see ../README.md for pairing and the systemd unit.
+#
+#   bar:   [widget.appletv]  type = "dtd/napple-tv:remote"
+#   ipc:   noctalia msg plugin dtd/napple-tv:bridge all key select
+#          noctalia msg panel-toggle dtd/napple-tv:pad
+
+id = "dtd/napple-tv"
+name = "Apple TV Remote"
+version = "0.1.0"
+plugin_api = 26
+author = "dtd"
+license = "MIT"
+icon = "device-tv"
+description = "Now-playing in the bar and a full remote panel for an Apple TV, via the napple-tvd pyatv bridge."
+tags = ["media", "remote"]
+dependencies = ["napple-tvd"]
+
+[[setting]]
+key = "endpoint"
+type = "string"
+label_key = "settings.endpoint.label"
+description_key = "settings.endpoint.description"
+default = "http://127.0.0.1:7655"
+
+# Holds the SSE stream to the bridge and publishes snapshots to shared state;
+# also the IPC target for keybinds.
+[[service]]
+id = "bridge"
+entry = "service.luau"
+
+[[widget]]
+id = "remote"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_title"
+  type = "bool"
+  label_key = "settings.show_title.label"
+  default = true
+
+  [[widget.setting]]
+  key = "max_title"
+  type = "int"
+  label_key = "settings.max_title.label"
+  description_key = "settings.max_title.description"
+  default = 24
+  min = 4
+  max = 80
+
+  [[widget.setting]]
+  key = "hide_when_off"
+  type = "bool"
+  label_key = "settings.hide_when_off.label"
+  description_key = "settings.hide_when_off.description"
+  default = false
+
+# Arrow keys / Enter / Backspace drive the TV while the panel is open; Escape
+# is left alone so it still closes the panel.
+[[panel]]
+id = "pad"
+entry = "panel.luau"
+width = 320
+height = 580
+placement = "attached"
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Left", "Right", "Return", "BackSpace", "space", "h"]
+
+# Separate panel for typing into tvOS text fields, so captured keys never
+# fight with the text input.
+[[panel]]
+id = "keyboard"
+entry = "keyboard.luau"
+width = 340
+height = 190
+placement = "attached"
+keyboard_focus = "exclusive"

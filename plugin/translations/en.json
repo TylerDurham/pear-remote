@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "endpoint": {
+      "label": "Bridge URL",
+      "description": "Where napple-tvd is listening (loopback only)"
+    },
+    "show_title": {
+      "label": "Show title"
+    },
+    "max_title": {
+      "label": "Max title length",
+      "description": "Characters of the now-playing title shown in the bar"
+    },
+    "hide_when_off": {
+      "label": "Hide when asleep",
+      "description": "Hide the widget while the Apple TV is asleep or unreachable"
+    }
+  }
+}
