@@ -1,9 +1,8 @@
-import time
-
 import pyatv
 import typer
 
 import asyncio
+from pyatv.interface import BaseConfig
 from pyatv.storage.file_storage import FileStorage
 from functools import wraps
 from collections.abc import Callable, Coroutine
@@ -60,7 +59,7 @@ async def ask(prompt: str = "") -> str:
     return await fut
 
 
-def describe(tvs: List[pyatv.interface.BaseConfig]):
+def describe(tvs: List[BaseConfig]):
 
     if tvs is None or len(tvs) == 0:
         print(
@@ -103,21 +102,44 @@ async def cmd_pair(
 
     if len(tvs) > 1:
         describe(tvs)
-        choice = await ask("Enter the number of a TV to pair:")
-        tv = tvs[int(choice) - 1]
+        while True:
+            choice = (
+                await ask(
+                    f"Enter the number of a TV to pair (1-{len(tvs)}, q to quit): "
+                )
+            ).strip()
+            if choice.lower() in ("q", "quit"):
+                raise typer.Exit(code=1)
+            if choice.isdigit() and 1 <= int(choice) <= len(tvs):
+                tv = tvs[int(choice) - 1]
+                break
+            print(f"Invalid choice {choice!r}: enter a number from 1 to {len(tvs)}.")
 
     elif len(tvs) == 1:
         tv = tvs[0]
     else:
         describe(tvs)
         return
-        
+
     print(f"Pairing with {tv.name} ({tv.address})")
 
     storage = FileStorage.default_storage(loop)
     await storage.load()
 
-    tv = (await pyatv.scan(loop, identifier=tv.identifier, hosts=[str(tv.address)], storage=storage, timeout=5))[0]
+    found = await pyatv.scan(
+        loop,
+        identifier=tv.identifier,
+        hosts=[str(tv.address)],
+        storage=storage,
+        timeout=5,
+    )
+    if not found:
+        print(
+            f"{tv.name} ({tv.address}) stopped responding. Make sure it is awake and try again."
+        )
+        raise typer.Exit(code=1)
+
+    tv = found[0]
     print(f"{tv}")
 
 
@@ -127,7 +149,7 @@ async def cmd_scan(
     hosts: Optional[List[str]] = typer.Option(
         None, "--hosts", "-H", help="One or more host ip addresses"
     ),
-    timeout: Optional[int] = typer.Option(
+    timeout: int = typer.Option(
         5, "--timeout", "-t", help="The timeout for the operation"
     ),
 ):
