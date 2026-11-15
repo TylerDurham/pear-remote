@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import List
 import pyatv
-from pyatv.const import Protocol
 from pyatv.const import PairingRequirement, Protocol
 
 async def scan(hosts: List[str] | None, timeout: int = 5) -> list[pyatv.interface.BaseConfig]:

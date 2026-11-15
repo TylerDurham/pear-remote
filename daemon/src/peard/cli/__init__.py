@@ -65,7 +65,7 @@ async def cmd_scan(
     """
     Scans the network for compatible devices. If you don't see devices, try the following:
     \n - you can allow `5353/udp` through your local firewall. 
-    \n - you can also temporatily disable your local firewall.
+    \n - you can also temporarily disable your local firewall.
     """
 
     tvs = await scan(hosts=hosts, timeout=timeout)
@@ -73,7 +73,7 @@ async def cmd_scan(
         print(
             "No Apple TVs found. Use --hosts <IP Address> to get past multicast firewall issues. You can also open port 5353/udp in your local firewall."
         )
-        return 1
+        raise typer.Exit(code=1)
 
     describe(tvs)
 
