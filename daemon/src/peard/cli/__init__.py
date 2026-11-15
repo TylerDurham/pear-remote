@@ -1,5 +1,6 @@
 import pyatv
 from pyatv.const import PairingRequirement, Protocol
+from rich import progress
 import typer
 
 import asyncio
@@ -11,6 +12,7 @@ from typing import Any, List, Optional, ParamSpec, TypeVar
 
 from rich.table import Table
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 import threading
 
@@ -52,7 +54,7 @@ async def async_ask(prompt: str = "") -> str:
 
     def run() -> None:
         try:
-            value = input(prompt)
+            value = typer.prompt(prompt)
         except (
             BaseException
         ) as exc:  # noqa: BLE001 - EOFError/KeyboardInterrupt go to the awaiter
@@ -88,7 +90,10 @@ def msg_no_devices():
     raise typer.Exit(code=1)
 
 
-def msg_show_devices(tvs: List[BaseConfig]):
+def msg_devices(tvs: List[BaseConfig]):
+    """
+    Build and display of devices. 
+    """
 
     if tvs is None or len(tvs) == 0:
         msg_no_devices()
@@ -128,11 +133,11 @@ async def cmd_pair(
     tvs = await scan_apple_tvs(hosts=hosts, timeout=5)
 
     if len(tvs) > 1:
-        msg_show_devices(tvs)
+        msg_devices(tvs)
         while True:
             choice = (
                 await async_ask(
-                    f"Enter the number of a TV to pair (1-{len(tvs)}, q to quit): "
+                    f"Enter the number of a TV to pair (1-{len(tvs)}, q to quit)"
                 )
             ).strip()
             if choice.lower() in ("q", "quit"):
@@ -186,11 +191,18 @@ async def cmd_scan(
      - you can also temporarily disable your local firewall.
     """
 
-    tvs = await scan_apple_tvs(hosts=hosts, timeout=timeout)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True,
+    ) as progress:
+        progress.add_task(description="Scanning for devices...", total=None)
+        tvs = await scan_apple_tvs(hosts=hosts, timeout=timeout)
+
     if not tvs:
         msg_no_devices()
-
-    msg_show_devices(tvs)
+    else:
+        msg_devices(tvs)
 
 
 def main():
