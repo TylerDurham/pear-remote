@@ -1,6 +1,5 @@
 import pyatv
 from pyatv.const import PairingRequirement, Protocol
-from rich import progress
 import typer
 
 import asyncio
@@ -66,24 +65,36 @@ async def async_ask(prompt: str = "") -> str:
     return await fut
 
 
-def is_apple_tv(c: BaseConfig):
+def is_pairable(c: BaseConfig):
+    """Simple function that returns `True` if the device can be paired, `False` if not.""" 
     svc = c.get_service(Protocol.Companion)
-    return svc is not None and svc.pairing not in {PairingRequirement.Unsupported, PairingRequirement.Disabled}
+    return svc is not None and svc.pairing not in {
+        PairingRequirement.Unsupported,
+        PairingRequirement.Disabled,
+    }
 
 
 async def scan_apple_tvs(hosts: List[str] | None, timeout: int = 5) -> List[BaseConfig]:
-    """Scan for devices and keep only pairable Apple TVs."""
+    """Scan for devices (with a spinner) and keep only pairable Apple TVs."""
     loop = asyncio.get_running_loop()
-    found = await pyatv.scan(
-        loop,
-        hosts=hosts,
-        timeout=timeout,
-        protocol={Protocol.AirPlay, Protocol.Companion, Protocol.MRP},
-    )
-    return [tv for tv in found if is_apple_tv(tv)]
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        progress.add_task(description="Scanning for devices...", total=None)
+        found = await pyatv.scan(
+            loop,
+            hosts=hosts,
+            timeout=timeout,
+            protocol={Protocol.AirPlay, Protocol.Companion, Protocol.MRP},
+        )
+    return [tv for tv in found if is_pairable(tv)]
 
 
 def msg_no_devices():
+    """Print a message that no devices were found during a `scan` or `pair` operation."""
     print(
         "No Apple TVs found. Use --hosts <IP Address> to get past multicast firewall issues. You can also open port 5353/udp in your local firewall."
     )
@@ -92,7 +103,7 @@ def msg_no_devices():
 
 def msg_devices(tvs: List[BaseConfig]):
     """
-    Build and display of devices. 
+    Display a list of devices.
     """
 
     if tvs is None or len(tvs) == 0:
@@ -191,14 +202,7 @@ async def cmd_scan(
      - you can also temporarily disable your local firewall.
     """
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        transient=True,
-    ) as progress:
-        progress.add_task(description="Scanning for devices...", total=None)
-        tvs = await scan_apple_tvs(hosts=hosts, timeout=timeout)
-
+    tvs = await scan_apple_tvs(hosts=hosts, timeout=timeout)
     if not tvs:
         msg_no_devices()
     else:
