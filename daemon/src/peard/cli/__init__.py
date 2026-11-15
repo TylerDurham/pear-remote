@@ -66,7 +66,7 @@ async def async_ask(prompt: str = "") -> str:
 
 
 def is_pairable(c: BaseConfig):
-    """Simple function that returns `True` if the device can be paired, `False` if not.""" 
+    """Simple function that returns `True` if the device can be paired, `False` if not."""
     svc = c.get_service(Protocol.Companion)
     return svc is not None and svc.pairing not in {
         PairingRequirement.Unsupported,
