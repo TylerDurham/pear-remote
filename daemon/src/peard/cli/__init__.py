@@ -17,8 +17,6 @@ from peard.core.appletv import scan
 P = ParamSpec("P")
 R = TypeVar("R")
 
-_opts_hosts = typer.Option(None, "--hosts", "-H", help="one or more hosts to scan")
-
 console = Console()
 
 
@@ -31,6 +29,7 @@ def run_async(fn: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, R]:
 
 
 app = typer.Typer(rich_markup_mode="markdown")
+
 
 def describe(tvs: List[pyatv.interface.BaseConfig]):
 
@@ -60,11 +59,13 @@ async def cmd_scan(
     hosts: Optional[List[str]] = typer.Option(
         None, "--hosts", "-H", help="One or more host ip addresses"
     ),
-    timeout: Optional[int] = typer.Option(5, "--timeout", "-t", help="The timeout for the operation"),
+    timeout: Optional[int] = typer.Option(
+        5, "--timeout", "-t", help="The timeout for the operation"
+    ),
 ):
     """
     Scans the network for compatible devices. If you don't see devices, try the following:
-    \n - you can allow `5353/udp` through your local firewall. 
+    \n - you can allow `5353/udp` through your local firewall.
     \n - you can also temporarily disable your local firewall.
     """
 
