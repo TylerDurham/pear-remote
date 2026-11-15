@@ -3,7 +3,7 @@
 
 local M = {}
 
-M.PLUGIN = "dtd/pear-remote"
+M.PLUGIN = "dtd/peard-remote"
 M.REMOTE_PANEL = M.PLUGIN .. ":pad"
 M.KEYBOARD_PANEL = M.PLUGIN .. ":keyboard"
 

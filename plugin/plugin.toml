@@ -1,12 +1,12 @@
 # Apple TV remote for the bar. Talks to the peard bridge (pyatv) over
 # localhost HTTP + SSE; see ../README.md for pairing and the systemd unit.
 #
-#   bar:   [widget.appletv]  type = "dtd/pear-remote:remote"
-#   ipc:   noctalia msg plugin dtd/pear-remote:bridge all key select
-#          noctalia msg panel-toggle dtd/pear-remote:pad
+#   bar:   [widget.appletv]  type = "dtd/peard-remote:remote"
+#   ipc:   noctalia msg plugin dtd/peard-remote:bridge all key select
+#          noctalia msg panel-toggle dtd/peard-remote:pad
 
-id = "dtd/pear-remote"
-name = "Pear Remote"
+id = "dtd/peard-remote"
+name = "Peard Remote"
 version = "0.2.0"
 plugin_api = 26
 author = "dtd"

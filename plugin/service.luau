@@ -3,11 +3,11 @@
 -- backoff) and republishes each snapshot to the plugin's shared state, where
 -- the bar widget and panels watch it. Also the IPC entry point for keybinds:
 --
---   noctalia msg plugin dtd/pear-remote:bridge all key up          (any /key name)
---   noctalia msg plugin dtd/pear-remote:bridge all key-hold select
---   noctalia msg plugin dtd/pear-remote:bridge all power toggle
---   noctalia msg plugin dtd/pear-remote:bridge all launch com.netflix.Netflix
---   noctalia msg plugin dtd/pear-remote:bridge all device "Office"  (name prefix or id)
+--   noctalia msg plugin dtd/peard-remote:bridge all key up          (any /key name)
+--   noctalia msg plugin dtd/peard-remote:bridge all key-hold select
+--   noctalia msg plugin dtd/peard-remote:bridge all power toggle
+--   noctalia msg plugin dtd/peard-remote:bridge all launch com.netflix.Netflix
+--   noctalia msg plugin dtd/peard-remote:bridge all device "Office"  (name prefix or id)
 
 local api = require("./lib/api.luau")
 
@@ -78,6 +78,6 @@ function onIpc(event, payload)
   elseif event == "device" and payload ~= "" then
     api.post("/device", { id = payload })
   else
-    noctalia.log("pear-remote: unknown ipc event " .. tostring(event))
+    noctalia.log("peard-remote: unknown ipc event " .. tostring(event))
   end
 end

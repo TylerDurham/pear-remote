@@ -1,5 +1,5 @@
 [Unit]
-Description=peard - Apple TV bridge for the Noctalia pear-remote plugin
+Description=peard - Apple TV bridge for the Noctalia peard-remote plugin
 After=network-online.target
 Wants=network-online.target
 
