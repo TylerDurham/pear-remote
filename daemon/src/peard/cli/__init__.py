@@ -17,17 +17,22 @@ from peard.core.appletv import scan
 P = ParamSpec("P")
 R = TypeVar("R")
 
-console = Console()
-
 
 def run_async(fn: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, R]:
-    @wraps(fn)  # keeps the signature so Typer still sees the params/annotations
+    """
+    We are using Typer, which does not support async commands. This
+    is a workaround.
+    """
+
+    @wraps(fn)  #
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        """Keeps the signature so Typer still sees the params/annotations"""
         return asyncio.run(fn(*args, **kwargs))
 
     return wrapper
 
 
+console = Console()
 app = typer.Typer(rich_markup_mode="markdown")
 
 
