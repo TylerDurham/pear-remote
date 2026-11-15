@@ -1,4 +1,5 @@
 import pyatv
+from pyatv.const import PairingRequirement, Protocol
 import typer
 
 import asyncio
@@ -12,13 +13,12 @@ from rich.table import Table
 from rich.console import Console
 
 import threading
-from peard.core.appletv import scan
 
 P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def run_async(fn: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, R]:
+def async_command(fn: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, R]:
     """
     We are using Typer, which does not support async commands. This
     is a workaround.
@@ -36,7 +36,7 @@ console = Console()
 app = typer.Typer(rich_markup_mode="markdown")
 
 
-async def ask(prompt: str = "") -> str:
+async def async_ask(prompt: str = "") -> str:
     """input() without blocking the loop or its shutdown.
 
     asyncio.to_thread uses the default executor, which asyncio.run() joins on exit,
@@ -64,13 +64,22 @@ async def ask(prompt: str = "") -> str:
     return await fut
 
 
-def describe(tvs: List[BaseConfig]):
+def is_apple_tv(c: BaseConfig):
+    svc = c.get_service(Protocol.Companion)
+    return svc is not None and svc.pairing not in {PairingRequirement.Unsupported, PairingRequirement.Disabled}
+
+def msg_no_devices():
+    print(
+        "No Apple TVs found. Use --hosts <IP Address> to get past multicast firewall issues. You can also open port 5353/udp in your local firewall."
+    )
+    raise typer.Exit(code=1)
+
+
+def msg_show_devices(tvs: List[BaseConfig]):
 
     if tvs is None or len(tvs) == 0:
-        print(
-            "No Apple TVs found. Use --hosts <IP Address> to get past multicast firewall issues. You can also open port 5353/udp in your local firewall."
-        )
-        raise typer.Exit(code=1)
+        msg_no_devices()
+        return
 
     else:
 
@@ -96,20 +105,20 @@ def describe(tvs: List[BaseConfig]):
 
 
 @app.command(name="pair")
-@run_async
+@async_command
 async def cmd_pair(
     host: Optional[str] = typer.Option(None, "--host", "-H", help="The host ip address")
 ):
 
     loop = asyncio.get_running_loop()
     hosts: List[str] | None = [host] if host is not None else None
-    tvs = await scan(hosts=hosts, timeout=5)
+    tvs = await pyatv.scan(loop, hosts=hosts, timeout=5)
 
     if len(tvs) > 1:
-        describe(tvs)
+        msg_show_devices(tvs)
         while True:
             choice = (
-                await ask(
+                await async_ask(
                     f"Enter the number of a TV to pair (1-{len(tvs)}, q to quit): "
                 )
             ).strip()
@@ -123,7 +132,7 @@ async def cmd_pair(
     elif len(tvs) == 1:
         tv = tvs[0]
     else:
-        describe(tvs)
+        msg_no_devices()
         return
 
     print(f"Pairing with {tv.name} ({tv.address})")
@@ -149,7 +158,7 @@ async def cmd_pair(
 
 
 @app.command(name="scan")
-@run_async
+@async_command
 async def cmd_scan(
     hosts: Optional[List[str]] = typer.Option(
         None, "--hosts", "-H", help="One or more host ip addresses"
@@ -160,13 +169,22 @@ async def cmd_scan(
 ):
     """
     Scans the network for compatible devices. If you don't see devices, try the following:
-    \n - you can allow `5353/udp` through your local firewall.
-    \n - you can also temporarily disable your local firewall.
+     - you can allow `5353/udp` through your local firewall.
+     - you can also temporarily disable your local firewall.
     """
 
-    tvs = await scan(hosts=hosts, timeout=timeout)
+    loop = asyncio.get_running_loop()
+    tvs = await pyatv.scan(
+        loop,
+        hosts=hosts,
+        timeout=timeout,
+        protocol={Protocol.AirPlay, Protocol.Companion, Protocol.MRP},
+    )
 
-    describe(tvs)
+    if len(tvs) > 0:
+        msg_show_devices([tv for tv in tvs if is_apple_tv(tv)])
+    else:
+        msg_no_devices()
 
 
 def main():
