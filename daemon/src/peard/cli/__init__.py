@@ -24,7 +24,7 @@ def run_async(fn: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, R]:
     is a workaround.
     """
 
-    @wraps(fn)  #
+    @wraps(fn)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         """Keeps the signature so Typer still sees the params/annotations"""
         return asyncio.run(fn(*args, **kwargs))
