@@ -68,6 +68,19 @@ def is_apple_tv(c: BaseConfig):
     svc = c.get_service(Protocol.Companion)
     return svc is not None and svc.pairing not in {PairingRequirement.Unsupported, PairingRequirement.Disabled}
 
+
+async def scan_apple_tvs(hosts: List[str] | None, timeout: int = 5) -> List[BaseConfig]:
+    """Scan for devices and keep only pairable Apple TVs."""
+    loop = asyncio.get_running_loop()
+    found = await pyatv.scan(
+        loop,
+        hosts=hosts,
+        timeout=timeout,
+        protocol={Protocol.AirPlay, Protocol.Companion, Protocol.MRP},
+    )
+    return [tv for tv in found if is_apple_tv(tv)]
+
+
 def msg_no_devices():
     print(
         "No Apple TVs found. Use --hosts <IP Address> to get past multicast firewall issues. You can also open port 5353/udp in your local firewall."
@@ -112,7 +125,7 @@ async def cmd_pair(
 
     loop = asyncio.get_running_loop()
     hosts: List[str] | None = [host] if host is not None else None
-    tvs = await pyatv.scan(loop, hosts=hosts, timeout=5)
+    tvs = await scan_apple_tvs(hosts=hosts, timeout=5)
 
     if len(tvs) > 1:
         msg_show_devices(tvs)
@@ -173,18 +186,11 @@ async def cmd_scan(
      - you can also temporarily disable your local firewall.
     """
 
-    loop = asyncio.get_running_loop()
-    tvs = await pyatv.scan(
-        loop,
-        hosts=hosts,
-        timeout=timeout,
-        protocol={Protocol.AirPlay, Protocol.Companion, Protocol.MRP},
-    )
-
-    if len(tvs) > 0:
-        msg_show_devices([tv for tv in tvs if is_apple_tv(tv)])
-    else:
+    tvs = await scan_apple_tvs(hosts=hosts, timeout=timeout)
+    if not tvs:
         msg_no_devices()
+
+    msg_show_devices(tvs)
 
 
 def main():
