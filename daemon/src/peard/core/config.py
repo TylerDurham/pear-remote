@@ -60,6 +60,26 @@ class Config:
 
         return cls(devices=devices, active=active, port=int(data.get("port", DEFAULT_PORT)))
 
+    @property
+    def current(self) -> Device | None:
+        for d in self.devices:
+            if d.identifier == self.active:
+                return d
+
+        return self.devices[0] if self.devices else None
+            
+
+    def find(self, key: str) -> Device | None:
+
+        # exact match on identifier or name
+        for d in self.devices:
+            if key in (d.identifier, d.name):
+                return d
+
+        # fuzzier matches
+        matches = [d for d in self.devices if d.name and d.name.casefold().startswith(key.casefold())]
+        return matches[0] if len(matches) == 1 else None
+
     def save(self) -> Path:
         path = config_path()
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -28,16 +28,35 @@ def test_default_devices_list_not_shared():
     a.devices.append(Device(identifier="x"))
     assert b.devices == []
 
+
 def test_config_save(isolated_config_home):
+    print(f"Loading config from '{config_path()}")
     expected = Config()
-    device = Device(name="First Device", identifier="First")
-    expected.devices.append(device)
-    device = Device(name="Second Device", identifier="Second")
-    expected.devices.append(device)
+
+    expected.devices.append(Device(name="First Device", identifier="AA:BB:CC:DD"))
+    expected.active = expected.devices[0].identifier
+    expected.devices.append(Device(name="Second Device", identifier="00:11:22:33"))
     expected.save()
 
     actual = Config.load()
     assert actual == expected
+
+
+def test_config_find_device(isolated_config_home):
+
+    print(f"Loading config from '{config_path()}")
+    expected = Config()
+
+    expected.devices.append(Device(name="First Device", identifier="AA:BB:CC:DD"))
+    expected.active = expected.devices[0].identifier
+    expected.devices.append(Device(name="Second Device", identifier="00:11:22:33"))
+    expected.save()
+
+    actual = Config.load()
+
+    for d in actual.devices:
+        t = actual.find(d.identifier)
+        assert t == d
 
 
 def test_save_writes_to_config_path(isolated_config_home):
@@ -45,8 +64,6 @@ def test_save_writes_to_config_path(isolated_config_home):
     assert path == config_path()
     assert path == isolated_config_home / "peard-remote" / "config.toml"
     assert path.exists()
-
-
 
 
 def test_save_empty_config():
