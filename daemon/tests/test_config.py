@@ -37,10 +37,7 @@ def test_config_save(isolated_config_home):
     expected.save()
 
     actual = Config.load()
-    assert actual.port == expected.port
-    assert actual.active == expected.active
-
-    print(f"{actual}")
+    assert actual == expected
 
 
 def test_save_writes_to_config_path(isolated_config_home):
