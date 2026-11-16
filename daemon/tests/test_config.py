@@ -97,3 +97,54 @@ def test_save_escapes_quotes_and_backslashes():
     cfg.save()
     data = cfg.load()
     assert data.devices[0].name == tricky
+
+
+@pytest.fixture
+def two_devices():
+    return Config(
+        devices=[
+            Device(name="Living Room", identifier="AA:BB:CC:DD"),
+            Device(name="Bedroom", identifier="00:11:22:33"),
+        ]
+    )
+
+
+def test_find_by_exact_name(two_devices):
+    assert two_devices.find("Bedroom") is two_devices.devices[1]
+
+
+def test_find_by_case_insensitive_name_prefix(two_devices):
+    assert two_devices.find("living") is two_devices.devices[0]
+
+
+def test_find_ambiguous_prefix_returns_none():
+    cfg = Config(
+        devices=[
+            Device(name="Living Room", identifier="1"),
+            Device(name="Living Room 2", identifier="2"),
+        ]
+    )
+    assert cfg.find("liv") is None
+
+
+def test_find_no_match_returns_none(two_devices):
+    assert two_devices.find("Kitchen") is None
+
+
+def test_current_returns_active_device(two_devices):
+    two_devices.active = "00:11:22:33"
+    assert two_devices.current is two_devices.devices[1]
+
+
+def test_current_defaults_to_first_device(two_devices):
+    assert two_devices.active is None
+    assert two_devices.current is two_devices.devices[0]
+
+
+def test_current_unknown_active_falls_back_to_first(two_devices):
+    two_devices.active = "does-not-exist"
+    assert two_devices.current is two_devices.devices[0]
+
+
+def test_current_with_no_devices_is_none():
+    assert Config().current is None
