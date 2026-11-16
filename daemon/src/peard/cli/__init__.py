@@ -208,6 +208,10 @@ async def cmd_scan(
     else:
         msg_devices(tvs)
 
+@app.command(name="serve")
+@async_command
+async def cmd_serve():
+    pass
 
 def main():
     app()
