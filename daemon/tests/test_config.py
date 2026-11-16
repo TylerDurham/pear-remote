@@ -77,5 +77,6 @@ def test_save_with_active_and_devices():
 def test_save_escapes_quotes_and_backslashes():
     tricky = 'Tyler\'s "Den" \\ TV'
     cfg = Config(devices=[Device(identifier="id1", name=tricky)])
-    data = _load(cfg.save())
-    assert data["devices"][0]["name"] == tricky
+    cfg.save()
+    data = cfg.load()
+    assert data.devices[0].name == tricky
