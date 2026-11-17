@@ -58,7 +58,9 @@ class Config:
 
         active = data.get("active")
 
-        return cls(devices=devices, active=active, port=int(data.get("port", DEFAULT_PORT)))
+        return cls(
+            devices=devices, active=active, port=int(data.get("port", DEFAULT_PORT))
+        )
 
     @property
     def current(self) -> Device | None:
@@ -67,7 +69,6 @@ class Config:
                 return d
 
         return self.devices[0] if self.devices else None
-            
 
     def find(self, key: str) -> Device | None:
 
@@ -77,7 +78,11 @@ class Config:
                 return d
 
         # fuzzier matches
-        matches = [d for d in self.devices if d.name and d.name.casefold().startswith(key.casefold())]
+        matches = [
+            d
+            for d in self.devices
+            if d.name and d.name.casefold().startswith(key.casefold())
+        ]
         return matches[0] if len(matches) == 1 else None
 
     def save(self) -> Path:
@@ -89,7 +94,6 @@ class Config:
             lines.append(f"active = {_q(self.active)}")
 
         for d in self.devices:
-
             lines += ["", "[[devices]]", f"identifier = {_q(d.identifier)}"]
             if d.name:
                 lines.append(f"name = {_q(d.name)}")

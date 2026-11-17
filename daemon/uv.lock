@@ -774,6 +774,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "pyatv" },
+    { name = "srptools" },
     { name = "typer" },
 ]
 
@@ -785,6 +786,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pyatv", specifier = ">=0.18.0" },
+    { name = "srptools", specifier = "<2" },
     { name = "typer", specifier = ">=0.29.0" },
 ]
 
@@ -1109,12 +1111,24 @@ wheels = [
 ]
 
 [[package]]
-name = "srptools"
-version = "2.0.0"
+name = "six"
+version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7c/70/eeb984c83b1313d8222a7ced3d764f250f76601a9bb8460d2a14c1d7faaf/srptools-2.0.0.tar.gz", hash = "sha256:3b5296fde4b70e76443bbeacc641f4e4125c81b6bd20e4e228bba340f00c06c5", size = 10711, upload-time = "2026-10-26T12:45:33.55Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/90/a87a3f65f5d201e8732ad4ad9473ec24dc73c0e32764380b83604b8764e6/srptools-2.0.0-py3-none-any.whl", hash = "sha256:566b1cc55964996296b6389294c61f7ee8072f12de800bff4be625f79d930c9b", size = 13220, upload-time = "2026-10-26T12:45:32.12Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
+name = "srptools"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a1/8a/d62af55a56d56216e96563bc9c29c2d16d957317742c2e5bd4e79a524b06/srptools-1.0.1.tar.gz", hash = "sha256:7fa4337256a1542e8f5bb4bed19e1d9aea98fe5ff9baf76693342a1dd6ac7c96", size = 15436, upload-time = "2020-09-12T02:06:28.244Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/b8/3f935d7f7d6bc25a88859beb0a6e246313012a12ae4844665322f771a5cb/srptools-1.0.1-py2.py3-none-any.whl", hash = "sha256:fccb44c949eb2507ba19f349a3087cb8fed2393014d7f0887b06c3186f19d1e9", size = 13183, upload-time = "2020-09-12T02:06:30.452Z" },
 ]
 
 [[package]]

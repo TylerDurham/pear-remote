@@ -1,5 +1,5 @@
 import pyatv
-from pyatv.const import PairingRequirement, Protocol
+from pyatv.const import  Protocol
 import typer
 
 import asyncio
@@ -9,11 +9,12 @@ from functools import wraps
 from collections.abc import Callable, Coroutine
 from typing import Any, List, Optional, ParamSpec, TypeVar
 
-from rich.table import Table
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-import threading
+from peard.core.config import Config, Device
+from peard.cli.pairing import pair_device, is_pairable
+from peard.cli.utils import async_ask, msg_devices, msg_no_devices
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -37,43 +38,6 @@ console = Console()
 app = typer.Typer(rich_markup_mode="markdown")
 
 
-async def async_ask(prompt: str = "") -> str:
-    """input() without blocking the loop or its shutdown.
-
-    asyncio.to_thread uses the default executor, which asyncio.run() joins on exit,
-    so an unanswered prompt would hang shutdown after any error. A daemon thread
-    is simply abandoned instead.
-    """
-    loop = asyncio.get_running_loop()
-    fut: asyncio.Future[str] = loop.create_future()
-
-    def deliver(setter, value) -> None:
-        if not fut.done():
-            setter(value)
-
-    def run() -> None:
-        try:
-            value = typer.prompt(prompt)
-        except (
-            BaseException
-        ) as exc:  # noqa: BLE001 - EOFError/KeyboardInterrupt go to the awaiter
-            loop.call_soon_threadsafe(deliver, fut.set_exception, exc)
-        else:
-            loop.call_soon_threadsafe(deliver, fut.set_result, value)
-
-    threading.Thread(target=run, daemon=True).start()
-    return await fut
-
-
-def is_pairable(c: BaseConfig):
-    """Simple function that returns `True` if the device can be paired, `False` if not."""
-    svc = c.get_service(Protocol.Companion)
-    return svc is not None and svc.pairing not in {
-        PairingRequirement.Unsupported,
-        PairingRequirement.Disabled,
-    }
-
-
 async def scan_apple_tvs(hosts: List[str] | None, timeout: int = 5) -> List[BaseConfig]:
     """Scan for devices (with a spinner) and keep only pairable Apple TVs."""
     loop = asyncio.get_running_loop()
@@ -93,50 +57,15 @@ async def scan_apple_tvs(hosts: List[str] | None, timeout: int = 5) -> List[Base
     return [tv for tv in found if is_pairable(tv)]
 
 
-def msg_no_devices():
-    """Print a message that no devices were found during a `scan` or `pair` operation."""
-    print(
-        "No Apple TVs found. Use --hosts <IP Address> to get past multicast firewall issues. You can also open port 5353/udp in your local firewall."
-    )
-    raise typer.Exit(code=1)
-
-
-def msg_devices(tvs: List[BaseConfig]):
-    """
-    Display a list of devices.
-    """
-
-    if tvs is None or len(tvs) == 0:
-        msg_no_devices()
-        return
-
-    else:
-
-        tbl = Table()
-        tbl.add_column("#")
-        tbl.add_column("Name")
-        tbl.add_column("Device")
-        tbl.add_column("ID")
-        tbl.add_column("Address")
-
-        count = 0
-        for tv in tvs:
-            count = count + 1
-            tbl.add_row(
-                f"{count}",
-                tv.name,
-                tv.device_info.model_str,
-                tv.identifier,
-                f"{tv.address}",
-            )
-
-        console.print(tbl)
-
 
 @app.command(name="pair")
 @async_command
 async def cmd_pair(
-    host: Optional[str] = typer.Option(None, "--host", "-H", help="The host ip address")
+    host: Optional[str] = typer.Option(
+        None, "--host", "-H", help="The host ip address"
+    ),
+    force: Optional[bool] = typer.Option(False, "--force", "-f"),
+    verbose: Optional[bool] = typer.Option(False, "--verbose", "-v"),
 ):
 
     loop = asyncio.get_running_loop()
@@ -144,7 +73,7 @@ async def cmd_pair(
     tvs = await scan_apple_tvs(hosts=hosts, timeout=5)
 
     if len(tvs) > 1:
-        msg_devices(tvs)
+        msg_devices(console, tvs)
         while True:
             choice = (
                 await async_ask(
@@ -183,7 +112,22 @@ async def cmd_pair(
         raise typer.Exit(code=1)
 
     tv = found[0]
+
+    config = Config.load()
+    paired_any = await pair_device(tv, loop, storage, force, verbose)
+
+    if not paired_any:
+        return 1
+
+    print(f"Saving config for:")
     print(f"{tv}")
+
+    dev = config.find(str(tv.identifier))
+    if dev is None:
+        config.devices.append(
+            Device(name=tv.name, identifier=str(tv.identifier), host=str(tv.address))
+        )
+        config.save()
 
 
 @app.command(name="scan")
@@ -206,12 +150,14 @@ async def cmd_scan(
     if not tvs:
         msg_no_devices()
     else:
-        msg_devices(tvs)
+        msg_devices(console, tvs)
+
 
 @app.command(name="serve")
 @async_command
 async def cmd_serve():
     pass
+
 
 def main():
     app()
