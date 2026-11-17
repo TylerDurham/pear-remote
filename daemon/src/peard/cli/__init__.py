@@ -1,5 +1,5 @@
 import pyatv
-from pyatv.const import  Protocol
+from pyatv.const import Protocol
 import typer
 
 import asyncio
@@ -119,7 +119,7 @@ async def cmd_pair(
     if not paired_any:
         return 1
 
-    print(f"Saving config for:")
+    print("Saving config for:")
     print(f"{tv}")
 
     dev = config.find(str(tv.identifier))

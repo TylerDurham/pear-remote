@@ -78,15 +78,12 @@ async def pair(
         await handler.begin()
         if handler.device_provides_pin:
             raw = await async_ask(f"  {proto.name}: enter the PIN shown on the TV: ")
-            print(f"DEBUG: typed pin: {raw}")
             digits = "".join(ch for ch in raw if ch.isdigit())
             if not digits:
                 print(f"  {proto.name}: no digits entered")
                 return False
 
-            i = int(digits)
-            print(f"DEBUG: int digits: {i}")
-            handler.pin(i)
+            handler.pin(int(digits))
         else:
             handler.pin(1234)
             await async_ask(

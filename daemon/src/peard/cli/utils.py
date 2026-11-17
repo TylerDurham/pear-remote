@@ -3,7 +3,6 @@ import threading
 from rich.console import Console
 import typer
 from rich.table import Table
-import asyncio
 from pyatv.interface import BaseConfig
 from typing import List
 
