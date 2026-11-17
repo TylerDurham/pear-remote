@@ -1,5 +1,8 @@
 # peard-remote
 
+<div align="center">
+  <img src="media/peard-250x250.png" width="250"/>
+</div>
 *An Apple TV remote you pair with — so, a pear'd remote.*
 
 An Apple TV remote for the [Noctalia](https://noctalia.dev) v5 bar, built on
